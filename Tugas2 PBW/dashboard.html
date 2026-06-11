@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard - UT Pemesanan Bahan Ajar</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="dashboard-page">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="assets/logo-ut.png" alt="Logo UT" class="logo-sm" />
+        <h2>UT - Pemesanan</h2>
+      </div>
+
+      <nav class="nav">
+        <a href="dashboard.html" class="nav-link active"> 📊 Dashboard </a>
+        <a href="stok.html" class="nav-link"> 📦 Informasi Bahan Ajar </a>
+        <a href="tracking.html" class="nav-link"> 🚚 Tracking Pengiriman </a>
+        <div class="nav-group">
+          <button
+            class="nav-link collapse-toggle"
+            onclick="toggleCollapse('laporanList')"
+          >
+            📋 Laporan ▾
+          </button>
+          <div id="laporanList" class="collapse" style="display: none">
+            <a
+              href="#"
+              class="nav-link sub"
+              onclick="
+                showNotAvailable('Monitoring Progress DO Bahan Ajar');
+                return false;
+              "
+            >
+              Monitoring Progress DO
+            </a>
+            <a
+              href="#"
+              class="nav-link sub"
+              onclick="
+                showNotAvailable('Rekap Bahan Ajar');
+                return false;
+              "
+            >
+              Rekap Bahan Ajar
+            </a>
+          </div>
+        </div>
+        <a
+          href="#"
+          class="nav-link"
+          onclick="
+            showNotAvailable('Histori Transaksi Bahan Ajar');
+            return false;
+          "
+        >
+          📜 Histori Transaksi
+        </a>
+        <button class="nav-link logout" onclick="logout()">🚪 Logout</button>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="main-header">
+        <div>
+          <h1 id="greeting">Halo!</h1>
+          <p id="greeting-sub">Selamat datang di Dashboard UT-Daerah</p>
+        </div>
+        <div class="user-card">
+          <div class="avatar">UT</div>
+          <div class="user-info">
+            <div id="userName">UT-Daerah</div>
+            <div id="userRole" class="small">Akses: -</div>
+            <div id="userLocation" class="small">Lokasi: -</div>
+          </div>
+        </div>
+      </header>
+
+      <section class="cards">
+        <div class="card stat">
+          <h3>📦 Informasi Bahan Ajar</h3>
+          <p>Kelola dan cek stok bahan ajar</p>
+          <a class="btn primary" href="stok.html">Buka</a>
+        </div>
+
+        <div class="card stat">
+          <h3>🚚 Tracking Pengiriman</h3>
+          <p>Lacak DO berdasarkan nomor pengiriman</p>
+          <a class="btn primary" href="tracking.html">Lacak DO</a>
+        </div>
+
+        <div class="card stat">
+          <h3>📊 Laporan & Rekap</h3>
+          <p>Monitoring progress dan rekap</p>
+          <a
+            class="btn primary"
+            href="#"
+            onclick="
+              showNotAvailable('Laporan & Rekap');
+              return false;
+            "
+            >Lihat</a
+          >
+        </div>
+
+        <div class="card stat">
+          <h3>📜 Histori Transaksi</h3>
+          <p>Riwayat pemesanan bahan ajar</p>
+          <a
+            class="btn primary"
+            href="#"
+            onclick="
+              showNotAvailable('Histori Transaksi');
+              return false;
+            "
+            >Riwayat</a
+          >
+        </div>
+      </section>
+
+      <section class="info-panel">
+        <div class="card">
+          <h3>📈 Ringkasan Hari Ini</h3>
+          <ul>
+            <li>Total DO Diproses: <strong id="totalDO">--</strong></li>
+            <li>Bahan Ajar Tersedia: <strong id="totalStock">--</strong></li>
+            <li>
+              Pengiriman tertunda: <strong id="delayedShipment">--</strong>
+            </li>
+            <li>Stok Rendah (< 50): <strong id="lowStockCount">--</strong></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>🔔 Notifikasi</h3>
+          <div id="notificationsContainer">
+            <p class="muted">Tidak ada notifikasi baru.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>© Universitas Terbuka • 2025</p>
+      </footer>
+    </main>
+
+    <script src="js/data.js"></script>
+    <script src="js/script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Stok Bahan Ajar - UT</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  </head>
+  <body>
+    <header class="topbar small">
+      <div class="brand">
+        <img src="assets/logo-ut.png" alt="Logo UT" class="logo" />
+        <div>
+          <h1>📦 Informasi Stok Bahan Ajar</h1>
+        </div>
+      </div>
+      <a href="dashboard.html" class="btn small">← Kembali</a>
+    </header>
+
+    <main class="container" id="app">
+      <!-- Statistik -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-value">{{ totalItems }}</div>
+          <div class="stat-label">Total Bahan Ajar</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ totalStok }}</div>
+          <div class="stat-label">Total Stok</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--success)">
+            {{ safeCount }}
+          </div>
+          <div class="stat-label">Stok Aman</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--warning)">
+            {{ lowStockCount }}
+          </div>
+          <div class="stat-label">Menipis</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--danger)">
+            {{ emptyCount }}
+          </div>
+          <div class="stat-label">Kosong</div>
+        </div>
+      </div>
+
+      <!-- Kontrol & Filter -->
+      <div class="filters-section card">
+        <div class="filters-header">
+          <button class="btn primary" @click="showAddForm = !showAddForm">
+            ➕ {{ showAddForm ? 'Tutup' : 'Tambah Bahan Ajar Baru' }}
+          </button>
+          <button class="btn secondary" @click="resetFilters">
+            🔄 Reset Filter
+          </button>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="filters-grid">
+          <!-- Filter UPBJJ -->
+          <div class="filter-group">
+            <label>🏢 Filter UPBJJ</label>
+            <select v-model="filters.upbjj" @change="updateAvailableCategories">
+              <option value="">Semua UPBJJ</option>
+              <option v-for="u in allUpbjj" :key="u" :value="u">{{ u }}</option>
+            </select>
+          </div>
+
+          <!-- Filter Kategori (Dependent) -->
+          <div class="filter-group">
+            <label>📚 Filter Kategori</label>
+            <select
+              v-model="filters.kategori"
+              :disabled="availableCategories.length === 0 && filters.upbjj"
+            >
+              <option value="">Semua Kategori</option>
+              <option v-for="k in availableCategories" :key="k" :value="k">
+                {{ k }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Filter Stock Status -->
+          <div class="filter-group">
+            <label>📊 Filter Status Stok</label>
+            <select v-model="filters.stockStatus">
+              <option value="">Semua Status</option>
+              <option value="safe">✅ Aman</option>
+              <option value="low">⚠️ Menipis</option>
+              <option value="empty">❌ Kosong</option>
+              <option value="lowAndEmpty">
+                ⚠️ Menipis & Kosong (Reorder Alert)
+              </option>
+            </select>
+          </div>
+
+          <!-- Sort -->
+          <div class="filter-group">
+            <label>🔤 Urutkan</label>
+            <select v-model="sortBy">
+              <option value="default">Urutan Default</option>
+              <option value="judul">Berdasarkan Judul (A-Z)</option>
+              <option value="qty">Berdasarkan Stok (Terbanyak)</option>
+              <option value="qtyAsc">Berdasarkan Stok (Tersedikit)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Search Box -->
+        <div class="search-container" style="margin-top: 12px">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="🔍 Cari kode, judul, atau lokasi rak..."
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <!-- Form Tambah Bahan Ajar -->
+      <div v-if="showAddForm" class="card add-form-section">
+        <h3>➕ Tambah Bahan Ajar Baru</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Kode Barang *</label>
+            <input
+              v-model="newItem.kode"
+              placeholder="cth: ASIP4301"
+              maxlength="20"
+            />
+            <small style="color: var(--muted)" v-if="newItem.kode"
+              >{{ newItem.kode.length }}/20</small
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Judul Bahan Ajar *</label>
+            <input
+              v-model="newItem.judul"
+              placeholder="Nama lengkap bahan ajar"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Kategori *</label>
+            <select v-model="newItem.kategori">
+              <option value="">-- Pilih Kategori --</option>
+              <option v-for="k in kategoriBahanAjar" :key="k" :value="k">
+                {{ k }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>UPBJJ *</label>
+            <select v-model="newItem.upbjj">
+              <option value="">-- Pilih UPBJJ --</option>
+              <option v-for="u in upbjjList" :key="u" :value="u">
+                {{ u }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Lokasi Rak *</label>
+            <input v-model="newItem.lokasiRak" placeholder="cth: Rak A-01" />
+          </div>
+
+          <div class="form-group">
+            <label>Jumlah Stok *</label>
+            <input
+              v-model.number="newItem.qty"
+              type="number"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Stok Safety *</label>
+            <input
+              v-model.number="newItem.safety"
+              type="number"
+              min="0"
+              placeholder="0"
+            />
+            <small style="color: var(--muted)"
+              >Jumlah minimum untuk reorder</small
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Catatan</label>
+            <input
+              v-model="newItem.catatanHTML"
+              placeholder="Catatan tambahan (opsional)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>URL Cover (opsional)</label>
+            <input v-model="newItem.cover" placeholder="assets/..." />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn secondary" @click="showAddForm = false">
+            Batal
+          </button>
+          <button
+            class="btn primary"
+            @click="addNewItem"
+            :disabled="!isFormValid"
+          >
+            💾 Tambah
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabel Stock -->
+      <div class="card table-container">
+        <div class="table-header">
+          <h3>📋 Daftar Stok Bahan Ajar</h3>
+          <span class="result-count"
+            >Menampilkan {{ filteredItems.length }} dari {{ allItems.length }}
+            item</span
+          >
+        </div>
+
+        <div v-if="filteredItems.length === 0" class="empty-state">
+          <div style="font-size: 32px; margin-bottom: 8px">📭</div>
+          <p>Tidak ada data yang sesuai dengan filter Anda</p>
+          <button class="btn secondary" @click="resetFilters">
+            Reset Filter
+          </button>
+        </div>
+
+        <table v-else class="table">
+          <thead>
+            <tr>
+              <th style="width: 80px">Cover</th>
+              <th style="width: 100px">Kode</th>
+              <th style="width: 200px">Judul</th>
+              <th style="width: 100px">Kategori</th>
+              <th style="width: 120px">UPBJJ</th>
+              <th style="width: 90px">Lokasi Rak</th>
+              <th style="width: 60px">Stok</th>
+              <th style="width: 60px">Safety</th>
+              <th style="width: 100px">Status</th>
+              <th style="width: 80px">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in filteredItems" :key="item.id">
+              <td>
+                <img
+                  v-if="item.cover"
+                  :src="item.cover"
+                  :alt="item.judul"
+                  style="
+                    width: 50px;
+                    height: 70px;
+                    object-fit: cover;
+                    border-radius: 4px;
+                    background: var(--surface);
+                  "
+                />
+                <div
+                  v-else
+                  style="
+                    width: 50px;
+                    height: 70px;
+                    background: var(--surface);
+                    border-radius: 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    color: var(--muted);
+                  "
+                >
+                  No Image
+                </div>
+              </td>
+              <td><strong>{{ item.kode }}</strong></td>
+              <td>
+                <div>{{ item.judul }}</div>
+                <small style="color: var(--muted)"
+                  >{{ item.catatanHTML }}</small
+                >
+              </td>
+              <td><small>{{ item.kategori }}</small></td>
+              <td><small>{{ item.upbjj }}</small></td>
+              <td><small>{{ item.lokasiRak }}</small></td>
+              <td style="text-align: center">
+                <span
+                  :style="{ color: getStockColor(item), fontWeight: 'bold' }"
+                >
+                  {{ item.qty }}
+                </span>
+              </td>
+              <td style="text-align: center">
+                <small>{{ item.safety }}</small>
+              </td>
+              <td>
+                <span
+                  :class="['status-badge', 'status-' + getStatus(item).key]"
+                >
+                  {{ getStatus(item).icon }} {{ getStatus(item).label }}
+                </span>
+              </td>
+              <td style="text-align: center">
+                <button class="btn small" title="Edit" @click="editItem(item)">
+                  ✏️
+                </button>
+                <button
+                  class="btn small"
+                  title="Hapus"
+                  @click="deleteItem(item.id)"
+                >
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal Edit -->
+      <div
+        v-if="showEditModal"
+        class="modal-overlay"
+        @click.self="closeEditModal"
+      >
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <h3>✏️ Edit Bahan Ajar</h3>
+            <button class="modal-close" @click="closeEditModal">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Kode Barang</label>
+                <input
+                  v-model="editingItem.kode"
+                  readonly
+                  style="background: var(--surface); cursor: not-allowed"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Judul Bahan Ajar</label>
+                <input v-model="editingItem.judul" />
+              </div>
+
+              <div class="form-group">
+                <label>Kategori</label>
+                <select v-model="editingItem.kategori">
+                  <option v-for="k in kategoriBahanAjar" :key="k" :value="k">
+                    {{ k }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>UPBJJ</label>
+                <select v-model="editingItem.upbjj">
+                  <option v-for="u in upbjjList" :key="u" :value="u">
+                    {{ u }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Lokasi Rak</label>
+                <input v-model="editingItem.lokasiRak" />
+              </div>
+
+              <div class="form-group">
+                <label>Jumlah Stok</label>
+                <input v-model.number="editingItem.qty" type="number" min="0" />
+              </div>
+
+              <div class="form-group">
+                <label>Stok Safety</label>
+                <input
+                  v-model.number="editingItem.safety"
+                  type="number"
+                  min="0"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Catatan</label>
+                <input v-model="editingItem.catatanHTML" />
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn secondary" @click="closeEditModal">Batal</button>
+            <button class="btn primary" @click="saveEdit">💾 Simpan</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>UT - Informasi Stok Bahan Ajar</p>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            allItems: [],
+            showAddForm: false,
+            showEditModal: false,
+            editingItem: null,
+            searchQuery: "",
+            sortBy: "default",
+            filters: {
+              upbjj: "",
+              kategori: "",
+              stockStatus: "",
+            },
+            newItem: {
+              kode: "",
+              judul: "",
+              kategori: "",
+              upbjj: "",
+              lokasiRak: "",
+              qty: 0,
+              safety: 0,
+              catatanHTML: "",
+              cover: "",
+            },
+            upbjjList: [],
+            kategoriBahanAjar: [],
+            availableCategories: [],
+          };
+        },
+        computed: {
+          filteredItems() {
+            let items = this.allItems;
+
+            // Filter berdasarkan UPBJJ
+            if (this.filters.upbjj) {
+              items = items.filter((it) => it.upbjj === this.filters.upbjj);
+            }
+
+            // Filter berdasarkan Kategori
+            if (this.filters.kategori) {
+              items = items.filter(
+                (it) => it.kategori === this.filters.kategori,
+              );
+            }
+
+            // Filter berdasarkan Status Stock
+            if (this.filters.stockStatus === "safe") {
+              items = items.filter((it) => it.qty >= it.safety);
+            } else if (this.filters.stockStatus === "low") {
+              items = items.filter((it) => it.qty < it.safety && it.qty > 0);
+            } else if (this.filters.stockStatus === "empty") {
+              items = items.filter((it) => it.qty === 0);
+            } else if (this.filters.stockStatus === "lowAndEmpty") {
+              items = items.filter((it) => it.qty <= it.safety);
+            }
+
+            // Filter berdasarkan Search
+            if (this.searchQuery) {
+              const q = this.searchQuery.toLowerCase();
+              items = items.filter(
+                (it) =>
+                  it.kode.toLowerCase().includes(q) ||
+                  it.judul.toLowerCase().includes(q) ||
+                  it.lokasiRak.toLowerCase().includes(q),
+              );
+            }
+
+            // Sort
+            if (this.sortBy === "judul") {
+              items.sort((a, b) => a.judul.localeCompare(b.judul));
+            } else if (this.sortBy === "qty") {
+              items.sort((a, b) => b.qty - a.qty);
+            } else if (this.sortBy === "qtyAsc") {
+              items.sort((a, b) => a.qty - b.qty);
+            }
+
+            return items;
+          },
+
+          totalItems() {
+            return this.allItems.length;
+          },
+
+          totalStok() {
+            return this.allItems.reduce((sum, it) => sum + it.qty, 0);
+          },
+
+          safeCount() {
+            return this.allItems.filter((it) => it.qty >= it.safety).length;
+          },
+
+          lowStockCount() {
+            return this.allItems.filter(
+              (it) => it.qty < it.safety && it.qty > 0,
+            ).length;
+          },
+
+          emptyCount() {
+            return this.allItems.filter((it) => it.qty === 0).length;
+          },
+
+          isFormValid() {
+            return (
+              this.newItem.kode.trim() &&
+              this.newItem.judul.trim() &&
+              this.newItem.kategori &&
+              this.newItem.upbjj &&
+              this.newItem.lokasiRak.trim() &&
+              this.newItem.qty >= 0 &&
+              this.newItem.safety >= 0
+            );
+          },
+
+          allUpbjj() {
+            return [...new Set(this.allItems.map((it) => it.upbjj))];
+          },
+        },
+        methods: {
+          loadData() {
+            this.allItems = [...dataBahanAjar];
+            this.upbjjList = [...upbjjList];
+            this.kategoriBahanAjar = [...kategoriBahanAjar];
+            this.updateAvailableCategories();
+          },
+
+          updateAvailableCategories() {
+            if (this.filters.upbjj) {
+              this.availableCategories = [
+                ...new Set(
+                  this.allItems
+                    .filter((it) => it.upbjj === this.filters.upbjj)
+                    .map((it) => it.kategori),
+                ),
+              ];
+            } else {
+              this.availableCategories = [...this.kategoriBahanAjar];
+            }
+          },
+
+          getStatus(item) {
+            if (item.qty === 0) {
+              return { key: "empty", label: "Kosong", icon: "❌" };
+            } else if (item.qty < item.safety) {
+              return { key: "low", label: "Menipis", icon: "⚠️" };
+            } else {
+              return { key: "safe", label: "Aman", icon: "✅" };
+            }
+          },
+
+          getStockColor(item) {
+            const status = this.getStatus(item);
+            if (status.key === "safe") return "var(--success)";
+            if (status.key === "low") return "var(--warning)";
+            return "var(--danger)";
+          },
+
+          addNewItem() {
+            if (!this.isFormValid) return;
+
+            const newId = Math.max(...this.allItems.map((it) => it.id), 0) + 1;
+
+            const item = {
+              id: newId,
+              ...this.newItem,
+            };
+
+            this.allItems.push(item);
+            this.resetForm();
+            this.showAddForm = false;
+            this.showToast("✓ Bahan ajar berhasil ditambahkan", "success");
+          },
+
+          editItem(item) {
+            this.editingItem = { ...item };
+            this.showEditModal = true;
+          },
+
+          saveEdit() {
+            const index = this.allItems.findIndex(
+              (it) => it.id === this.editingItem.id,
+            );
+            if (index !== -1) {
+              this.allItems.splice(index, 1, this.editingItem);
+              this.closeEditModal();
+              this.showToast("✓ Bahan ajar berhasil diperbarui", "success");
+            }
+          },
+
+          closeEditModal() {
+            this.showEditModal = false;
+            this.editingItem = null;
+          },
+
+          deleteItem(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus bahan ajar ini?")) {
+              this.allItems = this.allItems.filter((it) => it.id !== id);
+              this.showToast("✓ Bahan ajar berhasil dihapus", "success");
+            }
+          },
+
+          resetFilters() {
+            this.filters = {
+              upbjj: "",
+              kategori: "",
+              stockStatus: "",
+            };
+            this.searchQuery = "";
+            this.sortBy = "default";
+            this.updateAvailableCategories();
+          },
+
+          resetForm() {
+            this.newItem = {
+              kode: "",
+              judul: "",
+              kategori: "",
+              upbjj: "",
+              lokasiRak: "",
+              qty: 0,
+              safety: 0,
+              catatanHTML: "",
+              cover: "",
+            };
+          },
+
+          showToast(message, type = "info") {
+            const el = document.createElement("div");
+            el.className = `toast toast-${type}`;
+            el.textContent = message;
+            el.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              padding: 12px 16px;
+              background: ${
+                type === "success"
+                  ? "var(--success)"
+                  : type === "danger"
+                    ? "var(--danger)"
+                    : "var(--info)"
+              };
+              color: white;
+              border-radius: 6px;
+              z-index: 9999;
+              animation: slideIn 0.3s ease;
+            `;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2500);
+          },
+        },
+        mounted() {
+          this.loadData();
+        },
+      }).mount("#app");
+    </script>
+
+    <style>
+      .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: var(--card);
+        padding: 16px;
+        border-radius: var(--radius);
+        text-align: center;
+        border: 1px solid #e6eefb;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .stat-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: var(--accent);
+        margin-bottom: 4px;
+      }
+
+      .stat-label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .filters-section {
+        margin-bottom: 20px;
+      }
+
+      .filters-header {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .filter-group label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #0b2b4a;
+      }
+
+      .filter-group select {
+        padding: 8px 10px;
+        border: 1px solid #e1efff;
+        border-radius: 6px;
+        font-size: 13px;
+        background: white;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+
+      .filter-group select:hover {
+        border-color: var(--accent);
+      }
+
+      .filter-group select:disabled {
+        background: var(--surface);
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .search-container {
+        display: flex;
+        gap: 8px;
+      }
+
+      .search-input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #e1efff;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .add-form-section {
+        margin-bottom: 20px;
+        background: #f9fcff;
+      }
+
+      .add-form-section h3 {
+        margin-top: 0;
+        color: #0b2b4a;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .form-group label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #0b2b4a;
+      }
+
+      .form-group input,
+      .form-group select {
+        padding: 8px 10px;
+        border: 1px solid #e1efff;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .table-header h3 {
+        margin: 0;
+        color: #0b2b4a;
+      }
+
+      .result-count {
+        font-size: 13px;
+        color: var(--muted);
+        background: var(--surface);
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .status-safe {
+        background: #d1f0d8;
+        color: #0a3622;
+      }
+
+      .status-low {
+        background: #fff3cd;
+        color: #664d03;
+      }
+
+      .status-empty {
+        background: #f8d7da;
+        color: #842029;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--muted);
+      }
+
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal-dialog {
+        background: var(--card);
+        border-radius: var(--radius);
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #e6eefb;
+      }
+
+      .modal-header h3 {
+        margin: 0;
+        color: #0b2b4a;
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--muted);
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .modal-close:hover {
+        background: var(--surface);
+        color: #0b2b4a;
+      }
+
+      .modal-body {
+        padding: 20px;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding: 16px 20px;
+        border-top: 1px solid #e6eefb;
+      }
+
+      .btn.secondary {
+        background: var(--surface);
+        color: #0b2b4a;
+        border: 1px solid #e1efff;
+      }
+
+      .btn.secondary:hover {
+        background: #e6eefb;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .table thead {
+        background: var(--surface);
+      }
+
+      .table th {
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #0b2b4a;
+        border-bottom: 2px solid #e1efff;
+      }
+
+      .table td {
+        padding: 10px;
+        border-bottom: 1px solid #e6eefb;
+      }
+
+      .table tbody tr:hover {
+        background: #f9fcff;
+      }
+
+      .btn.small {
+        padding: 4px 8px;
+        font-size: 12px;
+        margin: 0 2px;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </body>
+</html>

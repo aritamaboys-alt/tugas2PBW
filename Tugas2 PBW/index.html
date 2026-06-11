@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SITTA - Sistem Pemesanan Bahan Ajar</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="auth-page">
+    <header class="topbar">
+      <div class="brand">
+        <img src="assets/logo-ut.png" alt="Logo UT" class="logo" />
+        <div>
+          <h1>SITTA - Sistem Pemesanan Bahan Ajar</h1>
+          <p class="sub">Universitas Terbuka</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="card auth-card">
+      <div class="brand">
+        <img src="assets/logo-ut.png" alt="Logo UT" class="logo" />
+      </div>
+      <h2>Login to SITTA - UT</h2>
+
+      <form
+        id="loginForm"
+        onsubmit="
+          event.preventDefault();
+          verifyLogin();
+        "
+      >
+        <label for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="email@ut.ac.id"
+          required
+          aria-required="true"
+        />
+
+        <label for="password">Password</label>
+        <div class="password-input">
+          <input
+            id="password"
+            type="password"
+            placeholder="Masukkan password"
+            required
+            aria-required="true"
+          />
+          <button
+            type="button"
+            class="toggle-password-btn"
+            onclick="togglePasswordVisibility('password', this)"
+            aria-label="Tampilkan password"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M1.54 12A10.94 10.94 0 0112 4.5c4.74 0 8.64 2.6 10.38 6.5A10.94 10.94 0 0112 19.5 10.94 10.94 0 011.54 12z" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <button type="submit" class="btn primary">Login</button>
+
+        <div class="auth-actions">
+          <button
+            type="button"
+            class="link-btn"
+            onclick="openModal('forgotModal')"
+          >
+            Lupa Password?
+          </button>
+          <button
+            type="button"
+            class="link-btn"
+            onclick="openModal('registerModal')"
+          >
+            Daftar
+          </button>
+        </div>
+      </form>
+
+    <!-- Modals -->
+    <div id="overlay" class="overlay" onclick="closeAllModals()"></div>
+
+    <!-- Lupa Password Modal -->
+    <div id="forgotModal" class="modal">
+      <div class="modal-header">
+        <h3>Lupa Password</h3>
+        <button class="close" onclick="closeAllModals()">×</button>
+      </div>
+      <div class="modal-body">
+        <p>Silahkan masukkan email terdaftar untuk mereset password</p>
+        <input
+          id="forgotEmail"
+          type="email"
+          placeholder="email@ut.ac.id"
+          aria-label="Email untuk reset password"
+        />
+        <div class="modal-actions">
+          <button class="btn" onclick="closeAllModals()">Batal</button>
+          <button class="btn primary" onclick="simulateForgot()">
+            Kirim email
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="registerModal" class="modal">
+      <div class="modal-header">
+        <h3>Pendaftaran akun</h3>
+        <button class="close" onclick="closeAllModals()">×</button>
+      </div>
+      <div class="modal-body">
+        <p>Masukan email UT dan password baru.</p>
+        <input
+          id="regEmail"
+          type="email"
+          placeholder="email@ut.ac.id"
+          aria-label="Email untuk registrasi"
+        />
+        <label for="regPassword">Password</label>
+        <div class="password-input">
+          <input
+            id="regPassword"
+            type="password"
+            placeholder="Password (minimal 6 karakter)"
+            aria-label="Password untuk registrasi"
+          />
+          <button
+            type="button"
+            class="toggle-password-btn"
+            onclick="togglePasswordVisibility('regPassword', this)"
+            aria-label="Tampilkan password"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M1.54 12A10.94 10.94 0 0112 4.5c4.74 0 8.64 2.6 10.38 6.5A10.94 10.94 0 0112 19.5 10.94 10.94 0 011.54 12z" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeAllModals()">Batal</button>
+          <button class="btn primary" onclick="simulateRegister()">
+            Daftar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>© Universitas Terbuka - Sistem Pemesanan Bahan Ajar</p>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script src="js/script.js"></script>
+  </body>
+</html>

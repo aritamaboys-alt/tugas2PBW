@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tracking Pengiriman - UT</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  </head>
+  <body>
+    <header class="topbar small">
+      <div class="brand">
+        <img src="assets/logo-ut.png" alt="Logo UT" class="logo" />
+        <div>
+          <h1>🚚 Tracking Pengiriman</h1>
+          <p class="sub">Pantau Status Delivery Order Bahan Ajar</p>
+        </div>
+      </div>
+      <a href="dashboard.html" class="btn small">← Kembali</a>
+    </header>
+
+    <main class="container" id="app">
+      <!-- Statistik -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-value">{{ totalDO }}</div>
+          <div class="stat-label">Total Pengiriman</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--success)">{{ completedCount }}</div>
+          <div class="stat-label">Selesai</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--info)">{{ inTransitCount }}</div>
+          <div class="stat-label">Dalam Perjalanan</div>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="tabs-container">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'search' }"
+          @click="activeTab = 'search'"
+        >
+          🔍 Cari Tracking
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'add' }"
+          @click="activeTab = 'add'"
+        >
+          ➕ Buat DO Baru
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'list' }"
+          @click="activeTab = 'list'"
+        >
+          📋 Daftar DO
+        </button>
+      </div>
+
+      <!-- TAB 1: SEARCH TRACKING -->
+      <div v-show="activeTab === 'search'" class="card tab-content">
+        <h2>🔍 Cari Tracking Pengiriman</h2>
+        <div class="search-row">
+          <input
+            v-model="searchNomorDO"
+            placeholder="Masukkan Nomor DO (contoh: DO2025-001)"
+            @keyup.enter="searchTracking"
+          />
+          <button class="btn primary" @click="searchTracking">🔍 Cari</button>
+        </div>
+
+        <div class="example-numbers">
+          <p class="small-text">Contoh nomor DO yang tersedia:</p>
+          <small v-for="do in Object.keys(allTracking)" :key="do">
+            <button
+              style="
+                background: none;
+                border: none;
+                color: var(--accent);
+                cursor: pointer;
+                text-decoration: underline;
+                font-size: 12px;
+              "
+              @click="searchNomorDO = do; searchTracking()"
+            >
+              {{ do }}
+            </button>
+            <span v-if="!$last"> • </span>
+          </small>
+        </div>
+
+        <!-- Tracking Result -->
+        <div v-if="trackingResult" class="tracking-result">
+          <div class="tracking-header">
+            <div>
+              <h3>{{ trackingResult.nomorDO }}</h3>
+              <p class="tracking-info">
+                <strong>Penerima:</strong> {{ trackingResult.nama }} (NIM:
+                {{ trackingResult.nim }})
+              </p>
+            </div>
+            <div class="status-badge" :class="'status-' + getStatusClass(trackingResult.status)">
+              {{ trackingResult.status }}
+            </div>
+          </div>
+
+          <div class="tracking-details">
+            <div class="detail-item">
+              <span class="label">📦 Paket:</span>
+              <span class="value">{{ trackingResult.paketNama }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">🚚 Ekspedisi:</span>
+              <span class="value">{{ trackingResult.ekspedisiNama }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">📅 Tanggal Kirim:</span>
+              <span class="value">{{ formatDate(trackingResult.tanggalKirim) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">💰 Total:</span>
+              <span class="value">Rp {{ formatCurrency(trackingResult.total) }}</span>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="timeline">
+            <h4>📍 Riwayat Pengiriman</h4>
+            <div
+              v-for="(entry, idx) in trackingResult.perjalanan"
+              :key="idx"
+              class="timeline-item"
+            >
+              <div class="timeline-dot"></div>
+              <div class="timeline-content">
+                <div class="timeline-time">{{ entry.waktu }}</div>
+                <div class="timeline-description">{{ entry.keterangan }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="showNoResult" class="empty-state">
+          <div style="font-size: 32px; margin-bottom: 8px">📭</div>
+          <p>Nomor DO tidak ditemukan</p>
+        </div>
+
+        <div v-else class="empty-state">
+          <div style="font-size: 32px; margin-bottom: 8px">🔍</div>
+          <p>Masukkan nomor DO untuk melihat tracking pengiriman</p>
+        </div>
+      </div>
+
+      <!-- TAB 2: CREATE NEW DO -->
+      <div v-show="activeTab === 'add'" class="card tab-content">
+        <h2>➕ Buat Delivery Order Baru</h2>
+
+        <div class="form-grid">
+          <!-- Nomor DO (Auto Generated - Read Only) -->
+          <div class="form-group">
+            <label>Nomor DO (Auto Generated) *</label>
+            <input
+              v-model="newDO.nomorDO"
+              readonly
+              style="background: var(--surface); cursor: not-allowed"
+              title="Nomor DO akan teregenerasi otomatis"
+            />
+            <small style="color: var(--muted)">Format: DO + Tahun + Urutan</small>
+          </div>
+
+          <!-- NIM -->
+          <div class="form-group">
+            <label>NIM *</label>
+            <input
+              v-model="newDO.nim"
+              placeholder="Masukkan NIM (cth: 123456789)"
+              maxlength="20"
+            />
+          </div>
+
+          <!-- Nama -->
+          <div class="form-group">
+            <label>Nama Penerima *</label>
+            <input
+              v-model="newDO.nama"
+              placeholder="Masukkan nama lengkap"
+            />
+          </div>
+
+          <!-- Ekspedisi -->
+          <div class="form-group">
+            <label>Ekspedisi *</label>
+            <select v-model="newDO.ekspedisi">
+              <option value="">-- Pilih Ekspedisi --</option>
+              <option v-for="exp in pengirimanList" :key="exp.kode" :value="exp.kode">
+                {{ exp.nama }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Paket Bahan Ajar -->
+          <div class="form-group">
+            <label>Paket Bahan Ajar *</label>
+            <select v-model="newDO.paketKode" @change="updatePaketDetails">
+              <option value="">-- Pilih Paket --</option>
+              <option v-for="paket in paketList" :key="paket.kode" :value="paket.kode">
+                [{{ paket.kode }}] {{ paket.nama }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Tanggal Kirim -->
+          <div class="form-group">
+            <label>Tanggal Kirim *</label>
+            <input
+              v-model="newDO.tanggalKirim"
+              type="date"
+            />
+          </div>
+
+          <!-- Total Harga (Auto) -->
+          <div class="form-group">
+            <label>Total Harga (Auto) *</label>
+            <input
+              v-model="newDO.total"
+              type="number"
+              readonly
+              style="background: var(--surface); cursor: not-allowed"
+            />
+            <small style="color: var(--muted)">
+              Rp {{ formatCurrency(newDO.total) }}
+            </small>
+          </div>
+        </div>
+
+        <!-- Paket Details -->
+        <div v-if="selectedPaketDetails" class="paket-details-box">
+          <h4>📦 Detail Paket Bahan Ajar</h4>
+          <div class="paket-info">
+            <div class="paket-header">
+              <span class="paket-code">{{ selectedPaketDetails.kode }}</span>
+              <span class="paket-name">{{ selectedPaketDetails.nama }}</span>
+            </div>
+            <div class="paket-contents">
+              <p style="margin-top: 0; font-weight: 600; color: #0b2b4a">
+                Isi Paket:
+              </p>
+              <ul style="margin: 8px 0; padding-left: 20px">
+                <li v-for="kodeItem in selectedPaketDetails.isi" :key="kodeItem">
+                  <strong>{{ kodeItem }}</strong> -
+                  {{ getItemNameByKode(kodeItem) }}
+                </li>
+              </ul>
+              <p style="margin: 8px 0; color: var(--muted)">
+                <strong>Harga Total:</strong> Rp
+                {{ formatCurrency(selectedPaketDetails.harga) }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions" style="margin-top: 20px">
+          <button class="btn secondary" @click="resetForm">Bersihkan</button>
+          <button class="btn primary" @click="createDO" :disabled="!isFormValid">
+            💾 Buat DO
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 3: LIST ALL DO -->
+      <div v-show="activeTab === 'list'" class="card tab-content">
+        <h2>📋 Daftar Semua Delivery Order</h2>
+
+        <div v-if="allDOList.length === 0" class="empty-state">
+          <div style="font-size: 32px; margin-bottom: 8px">📭</div>
+          <p>Belum ada delivery order</p>
+        </div>
+
+        <div v-else class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>No DO</th>
+                <th>NIM</th>
+                <th>Nama</th>
+                <th>Paket</th>
+                <th>Ekspedisi</th>
+                <th>Tanggal Kirim</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="do in allDOList" :key="do.nomorDO">
+                <td><strong>{{ do.nomorDO }}</strong></td>
+                <td>{{ do.nim }}</td>
+                <td>{{ do.nama }}</td>
+                <td>
+                  <small>{{ getDOPaketName(do.paketKode) }}</small>
+                </td>
+                <td><small>{{ getDOExpedisiName(do.ekspedisi) }}</small></td>
+                <td>{{ formatDate(do.tanggalKirim) }}</td>
+                <td>
+                  <span
+                    class="status-badge"
+                    :class="'status-' + getStatusClass(do.status)"
+                  >
+                    {{ do.status }}
+                  </span>
+                </td>
+                <td>Rp {{ formatCurrency(do.total) }}</td>
+                <td style="text-align: center">
+                  <button
+                    class="btn small"
+                    title="Lihat Detail"
+                    @click="viewDODetail(do.nomorDO)"
+                  >
+                    👁️
+                  </button>
+                  <button
+                    class="btn small"
+                    title="Hapus"
+                    @click="deleteDO(do.nomorDO)"
+                  >
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>UT - Sistem Tracking Delivery Order</p>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            activeTab: "search",
+            searchNomorDO: "",
+            trackingResult: null,
+            showNoResult: false,
+            allTracking: {},
+            pengirimanList: [],
+            paketList: [],
+            allItems: [],
+            selectedPaketDetails: null,
+            newDO: {
+              nomorDO: "",
+              nim: "",
+              nama: "",
+              ekspedisi: "",
+              paketKode: "",
+              tanggalKirim: new Date().toISOString().split("T")[0],
+              total: 0,
+            },
+          };
+        },
+
+        computed: {
+          totalDO() {
+            return Object.keys(this.allTracking).length;
+          },
+
+          completedCount() {
+            return Object.values(this.allTracking).filter(
+              (d) => d.status === "Selesai"
+            ).length;
+          },
+
+          inTransitCount() {
+            return Object.values(this.allTracking).filter(
+              (d) => d.status === "Dalam Perjalanan"
+            ).length;
+          },
+
+          isFormValid() {
+            return (
+              this.newDO.nim.trim() &&
+              this.newDO.nama.trim() &&
+              this.newDO.ekspedisi &&
+              this.newDO.paketKode &&
+              this.newDO.tanggalKirim &&
+              this.newDO.total > 0
+            );
+          },
+
+          allDOList() {
+            return Object.values(this.allTracking);
+          },
+        },
+
+        methods: {
+          loadData() {
+            this.allTracking = { ...dataTracking };
+            this.pengirimanList = [...pengirimanList];
+            this.paketList = [...paketBahanAjar];
+            this.allItems = [...dataBahanAjar];
+            this.generateNextDONumber();
+          },
+
+          generateNextDONumber() {
+            const currentYear = new Date().getFullYear();
+            const doNumbers = Object.keys(this.allTracking)
+              .filter((no) => no.startsWith(`DO${currentYear}`))
+              .map((no) => {
+                const match = no.match(/DO\d+-(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+              });
+
+            const nextSequence = Math.max(...doNumbers, 0) + 1;
+            this.newDO.nomorDO = `DO${currentYear}-${String(nextSequence).padStart(3, "0")}`;
+          },
+
+          searchTracking() {
+            const query = this.searchNomorDO.trim().toUpperCase();
+            this.showNoResult = false;
+            this.trackingResult = null;
+
+            if (!query) {
+              return;
+            }
+
+            const result = this.allTracking[query];
+            if (result) {
+              this.trackingResult = {
+                ...result,
+                paketNama: this.getPaketName(result.paketKode),
+                ekspedisiNama: this.getExpedisiName(result.ekspedisi),
+              };
+            } else {
+              this.showNoResult = true;
+            }
+          },
+
+          updatePaketDetails() {
+            if (this.newDO.paketKode) {
+              const paket = this.paketList.find(
+                (p) => p.kode === this.newDO.paketKode
+              );
+              if (paket) {
+                this.selectedPaketDetails = paket;
+                this.newDO.total = paket.harga;
+              }
+            } else {
+              this.selectedPaketDetails = null;
+              this.newDO.total = 0;
+            }
+          },
+
+          createDO() {
+            if (!this.isFormValid) {
+              alert("Mohon isi semua field yang diperlukan");
+              return;
+            }
+
+            const newOrder = {
+              nomorDO: this.newDO.nomorDO,
+              nim: this.newDO.nim,
+              nama: this.newDO.nama,
+              ekspedisi: this.newDO.ekspedisi,
+              paketKode: this.newDO.paketKode,
+              tanggalKirim: this.newDO.tanggalKirim,
+              total: this.newDO.total,
+              status: "Dalam Perjalanan",
+              perjalanan: [
+                {
+                  waktu: new Date().toLocaleString("id-ID"),
+                  keterangan: `Penerimaan di Loket: TANGERANG SELATAN. Pengirim: Universitas Terbuka`,
+                },
+              ],
+            };
+
+            this.allTracking[newOrder.nomorDO] = newOrder;
+            this.showToast("✓ Delivery Order berhasil dibuat", "success");
+            this.resetForm();
+            this.activeTab = "list";
+            this.generateNextDONumber();
+          },
+
+          deleteDO(nomorDO) {
+            if (confirm("Apakah Anda yakin ingin menghapus DO ini?")) {
+              delete this.allTracking[nomorDO];
+              this.showToast("✓ Delivery Order berhasil dihapus", "success");
+              this.generateNextDONumber();
+            }
+          },
+
+          viewDODetail(nomorDO) {
+            this.searchNomorDO = nomorDO;
+            this.searchTracking();
+            this.activeTab = "search";
+          },
+
+          resetForm() {
+            this.newDO = {
+              nomorDO: this.newDO.nomorDO,
+              nim: "",
+              nama: "",
+              ekspedisi: "",
+              paketKode: "",
+              tanggalKirim: new Date().toISOString().split("T")[0],
+              total: 0,
+            };
+            this.selectedPaketDetails = null;
+          },
+
+          getPaketName(kode) {
+            const paket = this.paketList.find((p) => p.kode === kode);
+            return paket ? paket.nama : "-";
+          },
+
+          getDOPaketName(kode) {
+            const paket = this.paketList.find((p) => p.kode === kode);
+            return paket ? `[${paket.kode}] ${paket.nama}` : "-";
+          },
+
+          getExpedisiName(kode) {
+            const exp = this.pengirimanList.find((e) => e.kode === kode);
+            return exp ? exp.nama : "-";
+          },
+
+          getDOExpedisiName(kode) {
+            const exp = this.pengirimanList.find((e) => e.kode === kode);
+            return exp ? exp.nama : "-";
+          },
+
+          getItemNameByKode(kode) {
+            const item = this.allItems.find((i) => i.kode === kode);
+            return item ? item.judul : "-";
+          },
+
+          getStatusClass(status) {
+            if (status === "Selesai") return "success";
+            if (status === "Dalam Perjalanan") return "info";
+            if (status === "Tertunda") return "warning";
+            return "danger";
+          },
+
+          formatDate(dateStr) {
+            if (!dateStr) return "-";
+            const date = new Date(dateStr);
+            return date.toLocaleDateString("id-ID", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+          },
+
+          formatCurrency(value) {
+            if (!value) return "0";
+            return Math.floor(value).toLocaleString("id-ID");
+          },
+
+          showToast(message, type = "info") {
+            const el = document.createElement("div");
+            el.className = `toast toast-${type}`;
+            el.textContent = message;
+            el.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              padding: 12px 16px;
+              background: ${
+                type === "success"
+                  ? "var(--success)"
+                  : type === "danger"
+                    ? "var(--danger)"
+                    : "var(--info)"
+              };
+              color: white;
+              border-radius: 6px;
+              z-index: 9999;
+              animation: slideIn 0.3s ease;
+            `;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2500);
+          },
+        },
+
+        mounted() {
+          this.loadData();
+        },
+      }).mount("#app");
+    </script>
+
+    <style>
+      .tabs-container {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e6eefb;
+        padding-bottom: 0;
+      }
+
+      .tab-btn {
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-bottom: -2px;
+      }
+
+      .tab-btn:hover {
+        color: var(--accent);
+      }
+
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+
+      .tab-content {
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .search-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .search-row input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #e1efff;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .example-numbers {
+        margin-bottom: 20px;
+        padding: 12px;
+        background: var(--surface);
+        border-radius: 6px;
+      }
+
+      .example-numbers p {
+        margin: 0 0 8px 0;
+        font-weight: 600;
+        color: #0b2b4a;
+        font-size: 13px;
+      }
+
+      .example-numbers small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .tracking-result {
+        margin-top: 20px;
+        padding: 16px;
+        background: #f9fcff;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent);
+      }
+
+      .tracking-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e6eefb;
+      }
+
+      .tracking-header h3 {
+        margin: 0 0 4px 0;
+        color: #0b2b4a;
+      }
+
+      .tracking-info {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .status-success {
+        background: #d1f0d8;
+        color: #0a3622;
+      }
+
+      .status-info {
+        background: #d1ecf1;
+        color: #0c5460;
+      }
+
+      .status-warning {
+        background: #fff3cd;
+        color: #664d03;
+      }
+
+      .status-danger {
+        background: #f8d7da;
+        color: #842029;
+      }
+
+      .tracking-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .detail-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: white;
+        border-radius: 6px;
+        border: 1px solid #e1efff;
+      }
+
+      .detail-item .label {
+        font-weight: 600;
+        color: #0b2b4a;
+        font-size: 13px;
+        min-width: 100px;
+      }
+
+      .detail-item .value {
+        text-align: right;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 13px;
+      }
+
+      .timeline {
+        margin-top: 20px;
+      }
+
+      .timeline h4 {
+        margin: 0 0 12px 0;
+        color: #0b2b4a;
+      }
+
+      .timeline-item {
+        display: flex;
+        margin-bottom: 16px;
+        position: relative;
+      }
+
+      .timeline-dot {
+        width: 12px;
+        height: 12px;
+        background: var(--accent);
+        border-radius: 50%;
+        margin-right: 12px;
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+
+      .timeline-item:not(:last-child)::before {
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 12px;
+        bottom: -16px;
+        width: 2px;
+        background: #e6eefb;
+      }
+
+      .timeline-content {
+        flex: 1;
+      }
+
+      .timeline-time {
+        font-weight: 600;
+        color: #0b2b4a;
+        font-size: 13px;
+      }
+
+      .timeline-description {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .form-group label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #0b2b4a;
+      }
+
+      .form-group input,
+      .form-group select {
+        padding: 8px 10px;
+        border: 1px solid #e1efff;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+      }
+
+      .paket-details-box {
+        margin-bottom: 20px;
+        padding: 16px;
+        background: #f0f7ff;
+        border: 2px solid var(--accent);
+        border-radius: 8px;
+      }
+
+      .paket-details-box h4 {
+        margin: 0 0 12px 0;
+        color: #0b2b4a;
+      }
+
+      .paket-info {
+        background: white;
+        padding: 12px;
+        border-radius: 6px;
+      }
+
+      .paket-header {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+
+      .paket-code {
+        background: var(--accent);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 12px;
+      }
+
+      .paket-name {
+        font-weight: 600;
+        color: #0b2b4a;
+      }
+
+      .paket-contents {
+        font-size: 13px;
+        color: #0b2b4a;
+      }
+
+      .paket-contents ul {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+
+      .paket-contents li {
+        margin-bottom: 4px;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .btn.secondary {
+        background: var(--surface);
+        color: #0b2b4a;
+        border: 1px solid #e1efff;
+      }
+
+      .btn.secondary:hover {
+        background: #e6eefb;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .table thead {
+        background: var(--surface);
+      }
+
+      .table th {
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #0b2b4a;
+        border-bottom: 2px solid #e1efff;
+      }
+
+      .table td {
+        padding: 10px;
+        border-bottom: 1px solid #e6eefb;
+      }
+
+      .table tbody tr:hover {
+        background: #f9fcff;
+      }
+
+      .btn.small {
+        padding: 4px 8px;
+        font-size: 12px;
+        margin: 0 2px;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--muted);
+      }
+
+      .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: var(--card);
+        padding: 16px;
+        border-radius: var(--radius);
+        text-align: center;
+        border: 1px solid #e6eefb;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .stat-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: var(--accent);
+        margin-bottom: 4px;
+      }
+
+      .stat-label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </body>
+</html>
